@@ -14,7 +14,8 @@ from torch.utils.data import Dataset
 random.seed(1)
 animal_label = {"cat": 0, "dog": 1}
 
-
+# 定义label的对应字典例如{"cat":0, "dog":1}
+# 传入的data_dir文件夹下训练或验证文件夹，例如cat_dog_split数据文件夹下就是train文件夹和valid文件夹
 class CatDogDataset(Dataset):
     def __init__(self, data_dir, transform=None):
         """

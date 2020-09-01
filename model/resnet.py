@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import torchvision
 
 
 class BasicBlock(nn.Module):
@@ -139,21 +140,41 @@ def resnet34(num_classes=1000, include_top=True):
 
 
 def resnet50(num_classes=1000, include_top=True):
-    return ResNet(Bottleneck,[3, 4, 6, 3], num_classes=num_classes, include_top=include_top)
+    return ResNet(Bottleneck, [3, 4, 6 ,3], num_classes=num_classes, include_top=include_top)
 
 
 def resnet101(num_classes=1000, include_top=True):
     return ResNet(Bottleneck, [3, 4, 23, 3], num_classes=num_classes, include_top=include_top)
 
 
+# 测试网络
 def test():
-    x = torch.randn(1, 3, 224, 224)
-    net = resnet50(num_classes=10)
-    out = net(x)
-    # out = torch.squeeze(out)
-    out = torch.softmax(out, dim=0)
-    _, predict = torch.max(out, 1)
-    print(predict.numpy())
-    # print(out.shape)
+    net = ResNet18()
+    y = net(torch.randn(1, 3, 224, 224))
+    print(y.size())
+    print(y)
+    y_exp_sum = torch.exp(y).squeeze().sum()
+    # y = torch.exp(y)
+    y = torch.exp(y) / y_exp_sum
+    print(y)
+    # print(torch.sum(y, dim=1))
+    _, predict = torch.max(y.data, 1)
+    print(predict.shape)
+    print(predict)
 
-test()
+
+def load_pre():
+    model = torchvision.models.resnet34(pretrained=False)
+    model_weight_path = "resnet34_pre.pth"
+
+    un_expectedkey, missing_key = model.load_state_dict(torch.load(model_weight_path))
+    # print(model.fc.in_features)
+    # fc_inchannel = model.fc.in_features
+    # model.fc = nn.Linear(fc_inchannel, 2)
+    # for child in model.children():
+        # print((child))
+    for k, v in model.state_dict().items():
+        print(k)
+
+# test()
+# load_pre()

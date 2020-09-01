@@ -8,7 +8,14 @@ import torchvision.transforms as transforms
 import torch.optim as optim
 from matplotlib import pyplot as plt
 from my_dataset import CatDogDataset
+import sys
+sys.path.append("model")
+from resnet import resnet34
 import torchvision
+
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
 
 
 def set_seed(seed=1):
@@ -20,8 +27,8 @@ def set_seed(seed=1):
 set_seed(1)
 
 # 参数设置
-MAX_EPOCH = 1
-BATCH_SIZE = 128
+MAX_EPOCH = 10
+BATCH_SIZE = 32
 LR = 0.0001
 log_interval = 5
 val_interval = 1
@@ -64,17 +71,30 @@ train_loader = DataLoader(dataset=train_data, batch_size=BATCH_SIZE, shuffle=Tru
 valid_loader = DataLoader(dataset=valid_data, batch_size=BATCH_SIZE, shuffle=True)
 test_loader = DataLoader(dataset=test_data, batch_size=BATCH_SIZE, shuffle=True)
 
+
 # ==================step 2/5 模型================
 def load_pre():
-    model = torchvision.models.resnet34(pretrained=False)
+    # model = torchvision.models.resnet34(pretrained=False)
+    model = resnet34(num_classes=2, include_top=True)
     model_weight_path = "save_model/resnet34_pre.pth"
 
-    model.load_state_dict(torch.load(model_weight_path))
+    # 删除resnet预训练模型参数的最后一层全连接层
+    pre_weight_dict = torch.load(model_weight_path)
+    for weight_name in list(pre_weight_dict.keys()):
+        if weight_name == "fc.weight":
+            pre_weight_dict.pop(weight_name)
+        if weight_name == "fc.bias":
+            pre_weight_dict.pop(weight_name)
+
+    missing_keys, unexpected_keys = model.load_state_dict(pre_weight_dict, strict=False)
     # print(model.fc.in_features)
-    fc_inchannel = model.fc.in_features
-    model.fc = nn.Linear(fc_inchannel, 2)
+    # fc_inchannel = model.fc.in_features
+    # model.fc = nn.Linear(fc_inchannel, 2)
     return model
+
+
 net = load_pre()
+net.to(device)
 
 # =================step 3/5 损失函数=============
 criterion = nn.CrossEntropyLoss()
@@ -97,11 +117,11 @@ for epoch in range(MAX_EPOCH):
         # forward
         inputs, labels = data
         # print(inputs.shape)
-        outputs = net(inputs)
+        outputs = net(inputs.to(device))
 
         # backward
         optimizer.zero_grad()  # 先把梯度置0
-        loss = criterion(outputs, labels)  # 用交叉熵损失函数计算损失
+        loss = criterion(outputs, labels.to(device))  # 用交叉熵损失函数计算损失
         loss.backward()  # 反向传播计算梯度
 
         # updata weights
@@ -131,13 +151,13 @@ for epoch in range(MAX_EPOCH):
             for j, data in enumerate(valid_loader):
 
                 inputs, labels = data
-                outputs = net(inputs)
-                loss = criterion(outputs, labels)
+                outputs = net(inputs.to(device))
+                loss = criterion(outputs, labels.to(device))
 
                 # 统计分类情况
                 _, predicted = torch.max(outputs.data, 1)
                 total_val += labels.size(0)
-                correct_val += (predicted == labels).squeeze().sum().numpy()
+                correct_val += (predicted == labels.to(device)).squeeze().sum().numpy()
                 loss_val += loss.item()
 
             print("Valid:\t Epoch[{:0>3}/{:0>3}] Iteration[{:0>3}/{:0>3}] Loss: {:.4f} Acc:{:.2%}".format(
